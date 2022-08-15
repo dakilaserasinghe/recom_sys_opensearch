@@ -1,0 +1,1 @@
+{"settings": {"index.knn": false}, "mappings": {"properties": {"fformats_vector": {"type": "knn_vector", "dimension": 1007}}}}
