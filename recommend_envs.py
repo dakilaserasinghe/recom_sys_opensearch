@@ -1,14 +1,14 @@
-import requests
-import urllib3
+import os
+import re
 import sys
 import json
+import time
+import logging
+import requests
+import urllib3
 import numpy as np
 import pandas as pd
 from bs4 import BeautifulSoup
-import os
-import re
-import time
-import logging
 from pathlib import Path
 from datetime import date
 from sklearn.feature_extraction import DictVectorizer
@@ -46,6 +46,7 @@ class Logger:
 
     @property
     def log(self):
+        '''return logger instance'''
         return self.logger
 
 
@@ -56,7 +57,7 @@ def read_siegfried(siegfried_file_name):
         sg_data = json.load(sg_file)
         return sg_data
     except:
-        logger.log.error("Error loading {}".format(siegfried_file_name))
+        logger.log.error("Error loading %s", siegfried_file_name)
         return None
 
 
@@ -81,16 +82,16 @@ def app_to_fformat_map():
 
     logger.log.info("Application to file format mapping starting")
     for tag in tags:
-        logger.log.debug("Extracting file formats data for app tag {}"
-                         .format(tag))
+        logger.log.debug("Extracting file formats data for app tag %s",
+                         tag)
         app2fformats[tag] = {}
 
-        logger.log.debug("request GET for https://www.wikidata.org/wiki/{}"
-                         .format(tag))
+        logger.log.debug("request GET for https://www.wikidata.org/wiki/%s",
+                         tag)
         wiki_res = requests.get("https://www.wikidata.org/wiki/" + tag)
         logger.log.debug(
-                    "response for GET https://www.wikidata.org/wiki/{0} : {1}"
-                    .format(tag, wiki_res.status_code))
+                    "response for GET https://www.wikidata.org/wiki/%s : %d",
+                    tag, wiki_res.status_code)
 
         soup = BeautifulSoup(wiki_res.text, 'html.parser')
         read_file_formats = []
@@ -98,8 +99,8 @@ def app_to_fformat_map():
         for link in soup.findAll('a'):
             fformat_wikitag = None
             title_tag = link.get('title')
-            if link.get('title') and re.search("(Q\d+)", link.get('title')):
-                fformat_wikitag = re.search("(Q\d+)",
+            if link.get('title') and re.search(r"(Q\d+)", link.get('title')):
+                fformat_wikitag = re.search(r"(Q\d+)",
                                             link.get('title')).group(1)
 
             if link.get('title') == "Property:P1072":
@@ -113,21 +114,21 @@ def app_to_fformat_map():
                 readable_text_formats = False
 
             if fformat_wikitag and readable_text_formats:
-                logger.log.debug("readable_formats: {} {}"
-                                 .format(link.text, fformat_wikitag))
+                logger.log.debug("readable_formats: %s %s",
+                                 link.text, fformat_wikitag)
                 read_file_formats.append(fformat_wikitag)
             if fformat_wikitag and writable_text_formats:
-                logger.log.debug("writable_formats: {} {}"
-                                 .format(link.text, fformat_wikitag))
+                logger.log.debug("writable_formats: %s %s",
+                                 link.text, fformat_wikitag)
                 write_file_formats.append(fformat_wikitag)
             if writable_text_formats and title_tag and \
-                re.search("Property:\w\d+", link.get('title')) and \
+                re.search(r"Property:\w\d+", link.get('title')) and \
                 link.get('title') not in \
                     ["Property:P854", "Property:P813", "Property:P1476",
                      "Property:P123", "Property:P1073"]:
                 writable_text_formats = False
             if readable_text_formats and title_tag and \
-                re.search("Property:\w\d+", link.get('title')) and \
+                re.search(r"Property:\w\d+", link.get('title')) and \
                 link.get('title') not in \
                     ["Property:P854", "Property:P813", "Property:P1476",
                      "Property:P123", "Property:P1072"]:
@@ -167,8 +168,8 @@ def load_emulation_envs(env_filename):
                              headers=headers, data=data,
                              verify=False, auth=('admin', 'admin'))
 
-    logger.log.info("response for POST 'https://localhost:9200/_bulk' : {}"
-                    .format(response.status_code))
+    logger.log.info("response for POST 'https://localhost:9200/_bulk' : %d",
+                    response.status_code)
     if response.status_code == 200:
         logger.log.info("environment data successfully loaded")
 
@@ -198,16 +199,14 @@ def test_query_envs():
                         headers=headers, json=json_data,
                         verify=False, auth=('admin', 'admin'))
     logger.log.info(
-        "response for POST https://localhost:9200/documents/document/" +
-        "_search : {}"
-        .format(response.status_code))
+        "response for POST https://localhost:9200/documents/document/_search : %d", response.status_code)
     logger.log.info(
-        "response output {}".format(response.json()['hits']['hits']))
+        "response output %s",response.json()['hits']['hits'])
 
 
 def delete_index(index):
     '''Delete Index in OpenSearch'''
-    logger.log.info("Deleting Index {}".format(index))
+    logger.log.info("Deleting Index %d", index)
     response = requests.delete('https://localhost:9200/' + index,
                                verify=False, auth=('admin', 'admin'))
     print(response)
@@ -224,7 +223,7 @@ def query_match_envs(field, term):
         }
     }
     logger.log.info(
-        "environment querying for term {} in field {}".format(term, field))
+        "environment querying for term %s in field %s",term, field)
     logger.log.info(
         "request POST https://localhost:9200/environments/env/_search")
 
@@ -234,10 +233,9 @@ def query_match_envs(field, term):
                              verify=False, auth=('admin', 'admin'))
     logger.log.info(
         "response for POST https://localhost:9200/environments/env/" +
-        "_search : {}"
-        .format(response.status_code))
+        "_search : %d", response.status_code)
     logger.log.info(
-        "response output {}".format(response.json()['hits']['hits']))
+        "response output %s", response.json()['hits']['hits'])
     return response.json()['hits']['hits']
 
 
@@ -253,7 +251,7 @@ def query_multi_match_envs(field, term):
         }
     }
     logger.log.info(
-        "environment querying for term {} in field {}".format(term, field))
+        "environment querying for term %s in field %s",term, field)
     logger.log.info(
         "request POST https://localhost:9200/environments/env/_search")
 
@@ -263,10 +261,9 @@ def query_multi_match_envs(field, term):
                              verify=False, auth=('admin', 'admin'))
     logger.log.info(
         "response for POST https://localhost:9200/environments/env/" +
-        "_search : {}"
-        .format(response.status_code))
+        "_search : %d", response.status_code)
     logger.log.info(
-        "response output {}".format(response.json()['hits']['hits']))
+        "response output %s", response.json()['hits']['hits'])
     return response.json()['hits']['hits']
 
 
@@ -290,10 +287,9 @@ def test_query_multi_envs():
                     verify=False, auth=('admin', 'admin'))
     logger.log.info(
         "response for POST https://localhost:9200/documents/document/" +
-        "_search : {}"
-        .format(response.status_code))
+        "_search : %d", response.status_code)
     logger.log.info(
-        "response output {}".format(response.json()['hits']['hits']))
+        "response output %s",response.json()['hits']['hits'])
 
 
 def test_fileformat_to_app_query_envs():
@@ -308,7 +304,7 @@ def test_fileformat_to_app_query_envs():
         },
     }
     logger.log.info("Test Fileformat to Application querying")
-    logger.log.info("query: {}".format(fformat_query))
+    logger.log.info("query: %s",fformat_query)
     logger.log.info(
         "request POST https://localhost:9200/documents1/document1/_search")
     response = requests.post(
@@ -317,10 +313,9 @@ def test_fileformat_to_app_query_envs():
                     verify=False, auth=('admin', 'admin'))
     logger.log.info(
         "response for POST https://localhost:9200/documents1/document1/" +
-        "_search : {}"
-        .format(response.status_code))
+        "_search : %d", response.status_code)
     logger.log.info(
-        "response output {}".format(response.json()['hits']['hits']))
+        "response output %s",response.json()['hits']['hits'])
     app = response.json()['hits']['hits'][0]['_source']['app']
     if app:
         logger.log.info("Application found {}".format(app))
@@ -331,28 +326,25 @@ def test_fileformat_to_app_query_envs():
                 },
             },
         }
-        logger.log.info("qureying for application {}".format(app))
+        logger.log.info("qureying for application %s",app)
         logger.log.info(
             "request POST https://localhost:9200/documents/document/_search")
         response = requests.post(
                         'https://localhost:9200/documents/document/_search',
                         headers=headers, json=json_data,
                         verify=False, auth=('admin', 'admin'))
+        logger.log.info("response for POST https://localhost:9200/documents/document/_search : %d", response.status_code)
         logger.log.info(
-            "response for POST https://localhost:9200/documents/document/" +
-            "_search : {}"
-            .format(response.status_code))
-        logger.log.info(
-            "response output {}".format(response.json()['hits']['hits']))
+            "response output %s",response.json()['hits']['hits'])
     else:
         logger.log.info("No suitable application found")
 
 
 def fformat_to_app_map():
-    # Q86920 (.txt), Q218170 (.ps) 
+    # Q86920 (.txt), Q218170 (.ps)
     url = "https://www.wikidata.org/entity/Q86920"
     try:
-        fileformat_key = re.search("/entity/(\w\d+)", url).group(1)
+        fileformat_key = re.search(r"/entity/(\w\d+)", url).group(1)
     except:
         print("Fileformat key extract error.")
 
@@ -363,11 +355,11 @@ def fformat_to_app_map():
     print(response.status_code)
 
     soup = BeautifulSoup(response.text, 'html.parser')
-    # collecting apps which can read the file format. 
+    # collecting apps which can read the file format.
     apps = []
     for link in soup.findAll('a'):
         if link.get('href'):
-            wikitag_extract = re.search("/wiki/(\w\d+)", link.get('href'))
+            wikitag_extract = re.search(r"/wiki/(\w\d+)", link.get('href'))
             if wikitag_extract and wikitag_extract.group(1) \
                not in [fileformat_key]:
                 app_wikitag = wikitag_extract.group(1)
@@ -386,8 +378,8 @@ def fformat_to_app_map():
         for link in soup.findAll('a'):
             title_tag = link.get('title')
             fformat_wikitag = None
-            if link.get('title') and re.search("(Q\d+)", link.get('title')):
-                fformat_wikitag = re.search("(Q\d+)",
+            if link.get('title') and re.search(r"(Q\d+)", link.get('title')):
+                fformat_wikitag = re.search(r"(Q\d+)",
                                             link.get('title')).group(1)
 
             if fformat_wikitag and readable_text_formats:
@@ -400,7 +392,7 @@ def fformat_to_app_map():
                 if fformat_wikitag == fileformat_key:
                     writable_apps.append((app, app_name))
 
-            if (link.get('title') == "Property:P1072"):
+            if link.get('title') == "Property:P1072":
                 print("readable_file_formats")
                 readable_text_formats = True
                 writable_text_formats = False
@@ -411,13 +403,13 @@ def fformat_to_app_map():
                 readable_text_formats = False
 
             if writable_text_formats and title_tag and \
-                re.search("Property:\w\d+", link.get('title')) and \
+                re.search(r"Property:\w\d+", link.get('title')) and \
                 link.get('title') not in \
                     ["Property:P854", "Property:P813", "Property:P1073"]:
                 writable_text_formats = False
 
             if readable_text_formats and title_tag and \
-                re.search("Property:\w\d+", link.get('title')) and \
+                re.search(r"Property:\w\d+", link.get('title')) and \
                 link.get('title') not in \
                     ["Property:P854", "Property:P813", "Property:P1072"]:
                 readable_text_formats = False
@@ -451,7 +443,7 @@ def write_app2fformats(envs, write_envs_filename):
     envs_file = open(write_envs_filename, 'a')
 
     file_formats = []
-    for id, (env, apps) in enumerate(envs.items()):
+    for index, (env, apps) in enumerate(envs.items()):
         fformats = []
         env2ff_map = {}
         for app in apps:
@@ -469,11 +461,11 @@ def write_app2fformats(envs, write_envs_filename):
         if write_envs_filename == 'random_envs.json':
             env_index = {"index": {"_index": "environments",
                                    "_type": "env",
-                                   "_id": id+1+NO_OF_REF_ENVS}}
+                                   "_id": index+1+NO_OF_REF_ENVS}}
         else:
             env_index = {"index": {"_index": "environments",
                                    "_type": "env",
-                                   "_id": id+1}}
+                                   "_id": index+1}}
         json.dump(env_index, envs_file)
         envs_file.write("\n")
 
@@ -487,7 +479,7 @@ def write_app2fformats(envs, write_envs_filename):
 
     envs_file.close()
     logger.log.info("Emulation environments mapping " +
-                    "sucessfully written to {}".format(write_envs_filename))
+                    "sucessfully written to %s",write_envs_filename)
     return file_formats
 
 
@@ -518,7 +510,7 @@ def random_envs():
     # 'app2fformats.json' is created by app_to_fformat_map()
     app2ff_filename = 'app2fformats.json'
     if not os.path.exists(app2ff_filename):
-        logger.log.error("{} does not exists".format(app2ff_filename))
+        logger.log.error("%s does not exists",app2ff_filename)
     app2ff_file = open(app2ff_filename)
     app2ff_map = json.load(app2ff_file)
 
@@ -560,7 +552,7 @@ def create_random_envs_index(random_envs, write_envs_filename):
 
     envs_file.close()
     logger.log.info("Emulation environments mapping " +
-                    "sucessfully written to {}".format(write_envs_filename))
+                    "sucessfully written to %s",write_envs_filename)
 
 
 def create_knn_envs_index(knn_vectors, write_envs_filename):
@@ -605,14 +597,14 @@ def create_knn_envs_index(knn_vectors, write_envs_filename):
 
     envs_file.close()
     logger.log.info("Emulation environments mapping " +
-                    "sucessfully written to {}".format(write_envs_filename))
+                    "sucessfully written to %s",write_envs_filename)
     return len(knn_vectors[id].tolist())
 
 
 def random_envs_choice(fileformat_list):
     '''choose environments randomly'''
     choices = []
-    for id in range(NO_OF_RAND_ENVS):
+    for _ in range(NO_OF_RAND_ENVS):
         items = np.random.choice(fileformat_list,
                                  size=NO_OF_RAND_FFORMATS, replace=False)
         choices.append(items.tolist())
@@ -685,11 +677,10 @@ def dump2json(data, filename):
     try:
         with open(filename, "w") as outfile:
             json.dump(data, outfile)
-        logger.log.info("Sucessfully written to {}"
-                        .format(filename))
+        logger.log.info("Sucessfully written to %s",filename)
     except:
         logger.log.error("Writing " +
-                         "to {} failed".format(filename))
+                         "to %s failed",filename)
 
 
 def get_matches(sg_data):
@@ -714,8 +705,7 @@ def multiple_query_all_match(image_filename, perf_mat):
                 if match != "UNKNOWN":
                     all_matches.append(match['id'])
                     fformat_matches = query_match_envs("fformats", match['id'])
-                    logger.log.info("Query response: {}"
-                                    .format(fformat_matches))
+                    logger.log.info("Query response: %s", fformat_matches)
                     perf_mat = calculate_score(fformat_matches, perf_mat)
     return perf_mat
 
@@ -731,9 +721,9 @@ def single_query_all_match(image_filename, perf_mat):
                     all_matches.append(match['id'])
         fformat_matches = query_multi_match_envs("fformats", '+'
                                                  .join(set(all_matches)))
-        logger.log.info("Query response: {}".format(fformat_matches))
+        logger.log.info("Query response: %s", fformat_matches)
         perf_mat = calculate_score(fformat_matches, perf_mat)
-        logger.log.info("Query list: {}".format(set(all_matches)))
+        logger.log.info("Query list: %s", set(all_matches))
     return perf_mat, all_matches
 
 
@@ -748,9 +738,9 @@ def single_query_best_match(image_filename, perf_mat):
                 all_matches.append(match)
         fformat_matches = query_multi_match_envs("fformats", '+'
                                                  .join(all_matches))
-        logger.log.info("Query response: {}".format(fformat_matches))
+        logger.log.info("Query response: %s", fformat_matches)
         perf_mat = calculate_score(fformat_matches, perf_mat)
-        logger.log.info("Query list: {}".format(set(all_matches)))
+        logger.log.info("Query list: %s", set(all_matches))
     return perf_mat, all_matches
 
 
@@ -793,7 +783,7 @@ def single_query_knn(vectorizer, fileformat_list, perf_mat):
     fformat_matches = requests.post('https://localhost:9200/knn-index/_search',
                                     headers=headers, json=json_data,
                                     verify=False, auth=('admin', 'admin'))
-    logger.log.info("Query response: {}".format(fformat_matches))
+    logger.log.info("Query response: %s", fformat_matches)
     perf_mat = calculate_score(fformat_matches.json()['hits']['hits'],
                                perf_mat)
     return perf_mat
@@ -806,10 +796,10 @@ def extract_fileformats():
     matches = []
     # collect wiki fileformats tags from
     # all siegfried files
-    for (root, dirs, files) in os.walk(DATA_PATH):
-        for f in files:
-            if '.json' in f:
-                image = read_siegfried(os.path.join(DATA_PATH, f))
+    for (_, _, files) in os.walk(DATA_PATH):
+        for fname in files:
+            if '.json' in fname:
+                image = read_siegfried(os.path.join(DATA_PATH, fname))
                 if image:
                     matches.extend(get_matches(image))
     # get count of all matches
@@ -889,7 +879,7 @@ def load_knn_indexes(knn_setup_filename, index_filename):
 
     env_filename = index_filename
     logger.log.info("Start knn indexes loading")
-    logger.log.info("Reading file {}".format(env_filename))
+    logger.log.info("Reading file %s", env_filename)
     with open(env_filename, 'rb') as f:
         data = f.read()
     headers = {'Content-Type': 'application/x-ndjson'}
@@ -897,9 +887,9 @@ def load_knn_indexes(knn_setup_filename, index_filename):
     response = requests.post('https://localhost:9200/_bulk',
                              headers=headers, data=data,
                              verify=False, auth=('admin', 'admin'))
-    logger.log.info("response for POST https://localhost:9200/_bulk : {}"
-                    .format(response.status_code))
-    logger.log.info("response output {}".format(response.json()))
+    logger.log.info("response for POST https://localhost:9200/_bulk : %d",
+                    response.status_code)
+    logger.log.info("response output %s", response.json())
 
 
 def log_summary(perf_mat, summary_filename):
@@ -924,7 +914,7 @@ if __name__ == "__main__":
 
     runs = 1
     for run in range(runs):
-        logger.log.info("Run: {}".format(runs))
+        logger.log.info("Run: %d", runs)
         if setup:
             # create reference environments.
             ref_envs = create_refrence_envs()
@@ -945,7 +935,7 @@ if __name__ == "__main__":
 
         # search querying..
         filecount = 0
-        for (root, dirs, files) in os.walk(DATA_PATH):
+        for (_, _, files) in os.walk(DATA_PATH):
             for file in files:
                 if '.json' in file:
                     image_filename = os.path.join(DATA_PATH, file)
@@ -957,7 +947,7 @@ if __name__ == "__main__":
 
     log_summary(perf_mat, 'summary.json')
     log_summary(perf_mat_knn, 'summary_knn.json')
-    logger.log.info("file count {}".format(filecount))
+    logger.log.info("file count %d", filecount)
 
     ref_env_count = 0
     rand_env_count = 0
@@ -970,8 +960,8 @@ if __name__ == "__main__":
         elif "Total" in env:
             total += perf_mat_knn[env]
         else:
-            logger.log.error("Undefined key {} in performance matrix"
-                             .format(env))
-    logger.log.info("Total Ref. Envs {}".format(ref_env_count))
-    logger.log.info("Total Rand. Envs {}".format(rand_env_count))
-    logger.log.info("Total Envs {}".format(total))
+            logger.log.error("Undefined key %s in performance matrix",
+                             env)
+    logger.log.info("Total Ref. Envs %d", ref_env_count)
+    logger.log.info("Total Rand. Envs %d", rand_env_count)
+    logger.log.info("Total Envs %d", total)

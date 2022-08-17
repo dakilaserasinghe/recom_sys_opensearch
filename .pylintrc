@@ -1,0 +1,5 @@
+[MASTER]
+disable=
+    C0103, # uppercase naming style
+    CXXXX, # add ad many as you need
+    R0903,
