@@ -4,7 +4,7 @@ This projecct implements a search engine instance of opensearch creating a recom
 
 ## setup:
 1. install [Docker](https://docs.docker.com/engine/install/ubuntu/)
-2. install [opensearch](https://opensearch.org/docs/latest/opensearch/install/docker/) (v:1.3.1)
+2. install [opensearch](https://opensearch.org/docs/latest/opensearch/install/docker/) (version:1.3.1)
 
 ## run:
 1. start docker opensearch instance.
