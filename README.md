@@ -8,7 +8,9 @@ This projecct implements a search engine instance of opensearch creating a recom
 
 ## run:
 1. start docker opensearch instance.
+
    sudo docker run -p 9200:9200 -p 9600:9600 -e "discovery.type=single-node" opensearchproject/opensearch:1.3.1
 
 2. run python.
+
    python recommend_envs.py
